@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NFT Sale</title>
+  <style>.hide { visibility: hidden; }</style>
+</head>
+<body>
+  <header><code id="account">Not Connected</code></header>
+  <main id="root" class="hide">
+    <h3>Mint ERC721:</h3>
+    <form id="mint-bear" name="bear">
+      <label>TO: <input name="to" type="text" value="0x" placeholder="0x" /></label>
+      <button type="submit">MINT</button><br />
+      <textarea name="result" disabled></textarea>
+    </form>
+    <hr />
+    <h3>Mint ERC1155:</h3>
+    <form id="mint-crocodile" name="crocodile">
+      <label>TO: <input name="to" type="text" value="0x" placeholder="0x" /></label><br />
+      <label>ID: <input name="id" type="number" value="1" /></label><br />
+      <label>Amount: <input name="amount" type="number" value="1" /></label><br />
+      <button type="submit">MINT</button><br />
+      <textarea name="result" disabled></textarea>
+    </form>
+  </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.6.9/ethers.umd.min.js" integrity="sha512-Veaz5IU2iRpa0BBrJlJeRgfJ7OAHWtVJZTXvgdH7s3ffsLUChllMCqC0Bb+eeRxGlrZ06iYIE/R3KsciCrgv3A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    const NFT = (function nft() {
+      let signer = null
+      let address = ''
+      return {
+        async connect() {
+          if (!window.ethereum) {
+            document.getElementById('account').innerText = `Metamask required!`
+            return
+          }
+
+          window.ethereum.on('chainChanged', () => window.location.reload())
+
+          try {
+            const provider = new ethers.providers.Web3Provider(window.ethereum, 'any')
+            await provider.send('eth_requestAccounts', [])
+            signer = provider.getSigner()
+            address = await signer.getAddress()
+
+            if (ethereum.chainId !== '0x868' && ethereum.chainId !== 2152) {
+              document.getElementById('account').innerText = `Unsupported network`
+              return
+            }
+
+            document.getElementById('account').innerText = `Connected wallet: ${address}`
+            document.getElementById('root').classList.remove('hide')
+            document.forms.bear.to.value = address
+            document.forms.crocodile.to.value = address
+          } catch {
+            document.getElementById('account').innerText = `Connection failure`
+          }
+        },
+        async mint721(ev) {
+          ev.preventDefault()
+
+          const abi = [{"inputs":[{"internalType":"address","name":"to","type":"address"}],"name":"mint","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"}]
+          const bear = new ethers.Contract('0x242fb90ea4aFA98c03b30BD8A79fEee6A7e06ceA', abi, signer)
+          await bear.mint(ev.target.to.value).then(r => r.wait(1)).then(tx => {
+            const { tokenId } = tx.events.find(({event}) => event === 'Transfer').args
+            ev.target.result.value = `ID (${tokenId}) Minted, tx: ${tx.transactionHash}`
+          }).catch(e => {
+            ev.target.result.value = `Error: ${e.toString()}`
+          })
+        },
+        async mint1155(ev) {
+          ev.preventDefault()
+
+          const abi = [{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"mint","outputs":[],"stateMutability":"nonpayable","type":"function"}]
+          const crocodile = new ethers.Contract('0x8886fC445F78565B466EEEB906caF663f01afE1f', abi, signer)
+          await crocodile.mint(ev.target.to.value, ev.target.id.value, ev.target.amount.value, '0x')
+            .then(res => res.wait(1))
+            .then(tx => {
+              ev.target.result.value = `ID (${ev.target.id.value}) amount (${ev.target.amount.value}) Minted, tx: ${tx.transactionHash}`
+            })
+            .catch(e => {
+              ev.target.result.value = `Error: ${e.toString()}`
+            })
+        },
+      }
+    })()
+
+    document.forms.bear.addEventListener('submit', NFT.mint721)
+    document.forms.crocodile.addEventListener('submit', NFT.mint1155)
+    window.addEventListener('load', NFT.connect)
+  </script>
+</body>
+</html>
